@@ -57,7 +57,7 @@ def file_size_mb(path: str) -> float:
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.reply("🎶 Привет! Отправь одну или несколько YouTube ссылок — я превращу их в MP3.")
+    await message.reply("🎶 Привет! Отправь одну или несколько YouTube ссылок — я сделаю MP3 с обложкой.")
 
 
 def extract_links_from_text(text: str) -> list[str]:
@@ -102,17 +102,30 @@ async def worker_loop():
 
         try:
             safe_template = os.path.join(DOWNLOAD_PATH, "%(title)s.%(ext)s")
+
             ydl_opts = {
                 "format": "bestaudio/best",
                 "outtmpl": safe_template,
                 "noplaylist": True,
                 "quiet": True,
-                "postprocessors": [{
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "192",
-                }],
+                "writethumbnail": True,  # скачиваем миниатюру
+                "postprocessors": [
+                    {  # извлечение аудио
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": "mp3",
+                        "preferredquality": "192",
+                    },
+                    {  # встраивание обложки
+                        "key": "FFmpegMetadata",
+                        "add_metadata": True,
+                    },
+                    {
+                        "key": "EmbedThumbnail",
+                        "already_have_thumbnail": False,
+                    },
+                ],
             }
+
             if USE_COOKIES:
                 ydl_opts["cookiefile"] = "cookies.txt"
 
@@ -123,7 +136,10 @@ async def worker_loop():
             if not os.path.exists(mp3_path):
                 files = [f for f in os.listdir(DOWNLOAD_PATH) if f.endswith(".mp3")]
                 if files:
-                    mp3_path = os.path.join(DOWNLOAD_PATH, max(files, key=lambda f: os.path.getmtime(os.path.join(DOWNLOAD_PATH, f))))
+                    mp3_path = os.path.join(
+                        DOWNLOAD_PATH,
+                        max(files, key=lambda f: os.path.getmtime(os.path.join(DOWNLOAD_PATH, f)))
+                    )
 
             size = file_size_mb(mp3_path)
             final_path = mp3_path
@@ -135,7 +151,7 @@ async def worker_loop():
                 final_path = compressed
 
             if os.path.getsize(final_path) > TG_MAX_BYTES:
-                await bot.send_message(chat_id, f"⚠️ {title} слишком большой (>{TG_MAX_BYTES//1024//1024}MB).")
+                await bot.send_message(chat_id, f"⚠️ {title} слишком большой (>50MB).")
             else:
                 await bot.send_audio(chat_id, FSInputFile(final_path), title=title)
 
