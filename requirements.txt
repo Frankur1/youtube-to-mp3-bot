@@ -1,4 +1,6 @@
+cat > requirements.txt << 'EOF'
 aiogram==3.13.1
 yt-dlp
 pydub
 ffmpeg-python
+EOF
