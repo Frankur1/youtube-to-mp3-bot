@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import FSInputFile
 
-# 🔥 Твой токен
+# 🔥 ВСТАВЬ свой токен сюда
 TOKEN = "7975956634:AAGn28QsJThMu1JEgjw949DQ0KF5bDvKoHs"
 
 bot = Bot(token=TOKEN)
@@ -25,7 +25,7 @@ async def handle_youtube_link(message: types.Message):
     url = message.text.strip()
     await message.answer("⏳ Ներբեռնում եմ վիդեոն, մի քիչ սպասիր...")
 
-    # Настройки для yt-dlp
+    # Настройки yt-dlp
     ydl_opts = {
         'format': 'bestaudio/best',
         'noplaylist': True,
@@ -37,7 +37,6 @@ async def handle_youtube_link(message: types.Message):
         }],
         'quiet': True,
         'nocheckcertificate': True,
-        # 👇 Новые параметры для обхода блокировок YouTube
         'extractor_retries': 10,
         'skip_unavailable_fragments': True,
         'source_address': '0.0.0.0',
@@ -46,18 +45,20 @@ async def handle_youtube_link(message: types.Message):
             'AppleWebKit/537.36 (KHTML, like Gecko) '
             'Chrome/120.0 Safari/537.36'
         ),
+        # ✅ Подключаем cookies.txt (должен лежать рядом с файлом)
+        'cookiefile': 'cookies.txt',
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(url, download=True)
-            title = info_dict.get("title", "song")
+            info = ydl.extract_info(url, download=True)
+            title = info.get("title", "song")
             filename = os.path.join(DOWNLOAD_PATH, f"{title}.mp3")
 
         await message.answer("📤 Ուղարկում եմ ֆայլը...")
 
-        audio_file = FSInputFile(filename)
-        await message.answer_audio(audio_file, title=title)
+        audio = FSInputFile(filename)
+        await message.answer_audio(audio, title=title)
 
         os.remove(filename)
 
