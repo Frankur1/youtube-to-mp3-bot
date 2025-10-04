@@ -23,18 +23,21 @@ async def handle_youtube_link(message: types.Message):
     url = message.text.strip()
     await message.answer("⏳ Ներբեռնում եմ վիդեոն, մի քիչ սպասիր...")
 
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'noplaylist': True,
-        'outtmpl': os.path.join(DOWNLOAD_PATH, '%(title)s.%(ext)s'),
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-        'quiet': True,
-        'nocheckcertificate': True
-    }
+ydl_opts = {
+    'format': 'bestaudio/best',
+    'noplaylist': True,
+    'outtmpl': os.path.join(DOWNLOAD_PATH, '%(title)s.%(ext)s'),
+    'postprocessors': [{
+        'key': 'FFmpegExtractAudio',
+        'preferredcodec': 'mp3',
+        'preferredquality': '192',
+    }],
+    'quiet': True,
+    'nocheckcertificate': True,
+    'extractor_retries': 10,
+    'skip_unavailable_fragments': True,
+    'source_address': '0.0.0.0',  # помогает на сервере
+}
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
