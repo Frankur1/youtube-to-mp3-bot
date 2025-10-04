@@ -25,6 +25,7 @@ async def handle_youtube_link(message: types.Message):
     url = message.text.strip()
     await message.answer("⏳ Ներբեռնում եմ վիդեոն, մի քիչ սպասիր...")
 
+    # Настройки для yt-dlp
     ydl_opts = {
         'format': 'bestaudio/best',
         'noplaylist': True,
@@ -36,11 +37,15 @@ async def handle_youtube_link(message: types.Message):
         }],
         'quiet': True,
         'nocheckcertificate': True,
+        # 👇 Новые параметры для обхода блокировок YouTube
         'extractor_retries': 10,
         'skip_unavailable_fragments': True,
         'source_address': '0.0.0.0',
-        # если используешь cookies.txt — раскомментируй строку ниже:
-        # 'cookiefile': 'cookies.txt',
+        'user_agent': (
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+            'AppleWebKit/537.36 (KHTML, like Gecko) '
+            'Chrome/120.0 Safari/537.36'
+        ),
     }
 
     try:
