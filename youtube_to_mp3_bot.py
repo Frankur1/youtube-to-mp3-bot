@@ -3,7 +3,9 @@ import yt_dlp
 import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
+from aiogram.types import FSInputFile
 
+# 🔥 Твой токен
 TOKEN = "7975956634:AAGn28QsJThMu1JEgjw949DQ0KF5bDvKoHs"
 
 bot = Bot(token=TOKEN)
@@ -23,21 +25,23 @@ async def handle_youtube_link(message: types.Message):
     url = message.text.strip()
     await message.answer("⏳ Ներբեռնում եմ վիդեոն, մի քիչ սպասիր...")
 
-ydl_opts = {
-    'format': 'bestaudio/best',
-    'noplaylist': True,
-    'outtmpl': os.path.join(DOWNLOAD_PATH, '%(title)s.%(ext)s'),
-    'postprocessors': [{
-        'key': 'FFmpegExtractAudio',
-        'preferredcodec': 'mp3',
-        'preferredquality': '192',
-    }],
-    'quiet': True,
-    'nocheckcertificate': True,
-    'extractor_retries': 10,
-    'skip_unavailable_fragments': True,
-    'source_address': '0.0.0.0',  # помогает на сервере
-}
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'noplaylist': True,
+        'outtmpl': os.path.join(DOWNLOAD_PATH, '%(title)s.%(ext)s'),
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'quiet': True,
+        'nocheckcertificate': True,
+        'extractor_retries': 10,
+        'skip_unavailable_fragments': True,
+        'source_address': '0.0.0.0',
+        # если используешь cookies.txt — раскомментируй строку ниже:
+        # 'cookiefile': 'cookies.txt',
+    }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -47,7 +51,6 @@ ydl_opts = {
 
         await message.answer("📤 Ուղարկում եմ ֆայլը...")
 
-        from aiogram.types import FSInputFile
         audio_file = FSInputFile(filename)
         await message.answer_audio(audio_file, title=title)
 
@@ -60,6 +63,7 @@ ydl_opts = {
 async def main():
     print("🤖 Բոտը աշխատում է...")
     await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
