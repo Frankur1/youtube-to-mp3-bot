@@ -8,11 +8,10 @@ from concurrent.futures import ThreadPoolExecutor
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import FSInputFile
+import ffmpeg
 
-import ffmpeg  # ffmpeg-python
-
-# ---------- CONFIG ----------
-TOKEN = "7975956634:AAGn28QsJThMu1JEgjw949DQ0KF5bDvKoHs"  # <-- твой токен
+# ====== НАСТРОЙКИ ======
+TOKEN = "7975956634:AAGn28QsJThMu1JEgjw949DQ0KF5bDvKoHs"
 DOWNLOAD_PATH = "downloads"
 MAX_WORKERS = 2
 QUEUE_MAXSIZE = 200
@@ -20,10 +19,9 @@ TG_MAX_BYTES = 50 * 1024 * 1024
 COMPRESS_THRESHOLD_MB = 48
 COMPRESSED_BITRATE = "96k"
 USE_COOKIES = os.path.exists("cookies.txt")
-# ----------------------------
+# ========================
 
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -59,20 +57,20 @@ def file_size_mb(path: str) -> float:
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.reply("🎵 Привет! Пришли ссылку на YouTube — я конвертирую её в MP3.")
+    await message.reply("🎶 Привет! Отправь одну или несколько YouTube ссылок — я превращу их в MP3.")
 
 
 def extract_links_from_text(text: str) -> list[str]:
     links = []
-    for p in text.split():
-        if "youtube.com" in p or "youtu.be" in p:
-            p = p.strip("<>.,;:()[]\"'")
-            links.append(p)
+    for part in text.split():
+        if "youtube.com" in part or "youtu.be" in part:
+            part = part.strip("<>.,;:()[]\"'")
+            links.append(part)
     return links
 
 
 @dp.message()
-async def handle_any_message(message: types.Message):
+async def handle_message(message: types.Message):
     if not message.text:
         return
 
@@ -80,37 +78,30 @@ async def handle_any_message(message: types.Message):
     if not links:
         return
 
-    responses = []
+    added = 0
     for url in links:
         if task_queue.full():
-            await message.reply("⚠️ Очередь переполнена — попробуй позже.")
-            break
-        job = {
-            "url": url,
-            "chat_id": message.chat.id,
-            "user_id": message.from_user.id,
-        }
+            await message.reply("⚠️ Очередь переполнена. Попробуй позже.")
+            return
+        job = {"url": url, "chat_id": message.chat.id}
         await task_queue.put(job)
-        pos = task_queue.qsize()
-        responses.append(f"✅ Ссылка добавлена в очередь (позиция {pos}): {url}")
+        added += 1
 
-    if responses:
-        await message.reply("\n".join(responses))
+    if added == 1:
+        await message.reply("🎧 Песня добавлена в очередь, скоро будет готово.")
+    else:
+        await message.reply(f"🎵 Добавлено {added} песен. Начинаю загрузку...")
 
 
 async def worker_loop():
-    logger.info("Worker запущен")
-    num = 0
+    logger.info("Worker started")
     while True:
         job = await task_queue.get()
-        num += 1
         url = job["url"]
         chat_id = job["chat_id"]
 
         try:
-            await bot.send_message(chat_id, f"⏳ Обрабатываю: {url}")
             safe_template = os.path.join(DOWNLOAD_PATH, "%(title)s.%(ext)s")
-
             ydl_opts = {
                 "format": "bestaudio/best",
                 "outtmpl": safe_template,
@@ -135,32 +126,31 @@ async def worker_loop():
                     mp3_path = os.path.join(DOWNLOAD_PATH, max(files, key=lambda f: os.path.getmtime(os.path.join(DOWNLOAD_PATH, f))))
 
             size = file_size_mb(mp3_path)
-            logger.info(f"Скачано {title}: {size:.2f} MB")
-
             final_path = mp3_path
+
             if size > COMPRESS_THRESHOLD_MB:
-                await bot.send_message(chat_id, f"🎧 Сжимаю ({size:.1f} MB → {COMPRESSED_BITRATE})...")
                 compressed = os.path.join(DOWNLOAD_PATH, f"{title}_small.mp3")
                 await run_blocking(compress_mp3_blocking, mp3_path, compressed, COMPRESSED_BITRATE)
                 os.remove(mp3_path)
                 final_path = compressed
 
             if os.path.getsize(final_path) > TG_MAX_BYTES:
-                await bot.send_message(chat_id, "⚠️ Файл больше 50MB — Telegram не принимает такие файлы.")
+                await bot.send_message(chat_id, f"⚠️ {title} слишком большой (>{TG_MAX_BYTES//1024//1024}MB).")
             else:
-                await bot.send_message(chat_id, "📤 Отправляю аудио...")
                 await bot.send_audio(chat_id, FSInputFile(final_path), title=title)
-                await bot.send_message(chat_id, "✅ Готово!")
 
             os.remove(final_path)
 
         except Exception as e:
             logger.error(f"Ошибка: {e}")
-            await bot.send_message(chat_id, f"❌ Ошибка: {e}")
+            try:
+                await bot.send_message(chat_id, f"❌ Ошибка при обработке: {e}")
+            except:
+                pass
 
         finally:
             task_queue.task_done()
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
 
 
 async def on_startup():
